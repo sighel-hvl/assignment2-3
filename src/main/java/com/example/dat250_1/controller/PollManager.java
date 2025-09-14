@@ -23,6 +23,8 @@ public class PollManager {
     Integer maxPollId = 0;
     Integer maxVoteId = 0;
     Integer maxVoteOptionId = 0;
+    private final HashMap<Integer, ArrayList<Integer>> pollOptionIds = new HashMap<>();
+
 
     public PollManager() {
     }
@@ -39,13 +41,28 @@ public class PollManager {
         Poll curr = new Poll(maxPollId, question, Instant.now(), Instant.now().plus(Duration.ofHours(activeHours)), pollOptions, userId);
         pollMap.put(maxPollId, curr);
         userMap.get(userId).getPollIds().add(maxPollId);
+        ArrayList<Integer> optionIds = new ArrayList<>();
         int count = 0;
         for (String option : pollOptions) {
             maxVoteOptionId++;
-            voteOptionMap.put(maxVoteOptionId, new VoteOption(userId, option, count));
+            voteOptionMap.put(maxVoteOptionId, new VoteOption(maxVoteOptionId, option, count));
+            optionIds.add(maxVoteOptionId);
             count++;
         }
+        pollOptionIds.put(maxPollId, optionIds);
         return curr;
+    }
+
+    public ArrayList<VoteOption> getOptionsForPoll(Integer pollId) {
+        ArrayList<VoteOption> list = new ArrayList<>();
+        ArrayList<Integer> ids = pollOptionIds.get(pollId);
+        if (ids != null) {
+            for (Integer id : ids) {
+                VoteOption vo = voteOptionMap.get(id);
+                if (vo != null) list.add(vo);
+            }
+        }
+        return list;
     }
 
     public Vote createVote(Integer userId, Integer voteOptionId) {
@@ -62,6 +79,15 @@ public class PollManager {
 
     public User getUserById(int id) {
         return userMap.get(id);
+    }
+
+    public User getUserByEmail(String email) {
+        for(User user : userMap.values()){
+            if(user.getEmail().equals(email)){
+                return user;
+            }
+        }
+        return null;
     }
 
     public ArrayList<User> getAllUsers() {
@@ -103,7 +129,6 @@ public class PollManager {
             pollMap.remove(pollId);
         }
         else{
-            System.out.println("fkkkkkk");
         }
     }
 }

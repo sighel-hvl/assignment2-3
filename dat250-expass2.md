@@ -11,4 +11,6 @@ PollManager.java is the controller for the project and uses hashmaps and the mod
 All the routes are created in the application "dat2501Application.java".
 Swagger-ui and openapi is implemented, for now the application is managed there through "http://localhost:8080/swagger-ui.html".
 
+The tests are added in 
+
 *Sigvard Helsingen, DAT250, H25.* 

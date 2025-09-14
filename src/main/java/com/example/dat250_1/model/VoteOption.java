@@ -16,6 +16,10 @@ public class VoteOption {
         this.presentationOrder = presentationOrder;
     }
 
+    public Integer getId() {
+        return id;
+    }
+
     public String getCaption(){
         return caption;
     }
@@ -27,5 +31,4 @@ public class VoteOption {
     public ArrayList<Integer> getVoteIds() {
         return voteIds;
     }
-
 }
