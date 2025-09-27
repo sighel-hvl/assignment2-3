@@ -40,7 +40,6 @@ public class PollsTest {
         em.persist(emacs);
         em.persist(yes);
         em.persist(no);
-
         em.persist(alice.voteFor(vim));
         em.persist(bob.voteFor(vim));
         em.persist(eve.voteFor(emacs));
@@ -58,6 +57,7 @@ public class PollsTest {
                 .property(PersistenceConfiguration.SCHEMAGEN_DATABASE_ACTION, "drop-and-create")
                 .property(PersistenceConfiguration.JDBC_USER, "sa")
                 .property(PersistenceConfiguration.JDBC_PASSWORD, "")
+                .property("hibernate.show_sql", "true")
                 .createEntityManagerFactory();
         emf.runInTransaction(em -> {
             populate(em);
