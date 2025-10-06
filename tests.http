@@ -130,6 +130,15 @@ Content-Type: application/json
 
 ###
 
+GET http://localhost:8080/api/polls/1/voteCounts
+Content-Type: application/json
+
+###
+
+GET http://localhost:8080/api/polls/1/voteCounts
+Content-Type: application/json
+
+###
 GET http://localhost:8080/api/getPolls
 Content-Type: application/json
 

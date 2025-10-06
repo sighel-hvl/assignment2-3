@@ -1,5 +1,6 @@
 package com.example.dat250_1;
 
+import redis.clients.jedis.UnifiedJedis;
 import com.example.dat250_1.controller.PollManager;
 import com.example.dat250_1.model.Poll;
 import com.example.dat250_1.model.User;
@@ -18,6 +19,29 @@ public class dat2501Application {
 	private final PollManager pollManager = new PollManager();
 
 	public static void main(String[] args) {
+        UnifiedJedis jedis = new UnifiedJedis("redis://localhost:6379");
+        System.out.println(jedis.ping());
+        //Task 1
+        jedis.del("users");
+        jedis.sadd("users", "alice");
+        jedis.sadd("users", "bob");
+        System.out.println(jedis.smembers("users"));
+        jedis.srem("users", "alice");
+        System.out.println(jedis.smembers("users"));
+        jedis.sadd("users", "eve");
+        System.out.println(jedis.smembers("users"));
+
+        //Task 2
+        jedis.hset("polls:1:info", "id", "1");
+        jedis.hset("polls:1:info", "title", "Pinapple on pizza?");
+        System.out.println(jedis.hget("polls:1:info", "title"));
+        jedis.hset("polls:1:voteoptions", "Yes, yammy", "269");
+        jedis.hset("polls:1:voteoptions", "Mamma mia, no!", "268");
+        jedis.hset("polls:1:voteoptions", "dont care", "42");
+        jedis.hincrBy("polls:1:voteoptions", "dont care", 3);
+        System.out.println(jedis.hget("polls:1:voteoptions", "dont care"));
+        System.out.println(jedis.hgetAll("polls:1:voteoptions"));
+        jedis.close();
 		SpringApplication.run(dat2501Application.class, args);
 	}
 
@@ -86,6 +110,13 @@ public class dat2501Application {
     public void deletePoll(@PathVariable int id) {
         pollManager.deleteVote(id);
     }
+
+    @CrossOrigin(origins = "http://localhost:5174")
+    @GetMapping("/api/polls/{pollId}/voteCounts")
+    public java.util.Map<String, Integer> getPollVoteCounts(@PathVariable Integer pollId) {
+        return pollManager.getVoteCount(pollId);
+    }
+
 
 
 }
