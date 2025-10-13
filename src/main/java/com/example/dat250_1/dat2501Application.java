@@ -116,7 +116,17 @@ public class dat2501Application {
     public java.util.Map<String, Integer> getPollVoteCounts(@PathVariable Integer pollId) {
         return pollManager.getVoteCount(pollId);
     }
+    @CrossOrigin(origins = "http://localhost:5174")
+    @PostMapping("/api/polls/{pollId}/voteEvent")
+    public void voteViaEvent(@PathVariable Integer pollId, @RequestBody VoteStructure voteStruct) {
+        pollManager.publishVoteEvent(pollId, voteStruct.voteOption, voteStruct.userId);
+    }
 
+    @CrossOrigin(origins = "http://localhost:5174")
+    @PostMapping("api/polls/subscribe")
+    public void subscribe(@RequestBody SubscriberStructure subcriber) {
+        pollManager.subscribePoll(subcriber.userId, subcriber.pollId);
+    }
 
 
 }

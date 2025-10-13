@@ -5,6 +5,7 @@ import com.example.dat250_1.model.User;
 import com.example.dat250_1.model.Vote;
 import com.example.dat250_1.model.VoteOption;
 import org.springframework.stereotype.Component;
+import redis.clients.jedis.JedisPubSub;
 import redis.clients.jedis.UnifiedJedis;
 
 import java.time.Duration;
@@ -26,11 +27,69 @@ public class PollManager {
     Integer maxVoteId = 0;
     Integer maxVoteOptionId = 0;
     private final UnifiedJedis jedis;
+    private final UnifiedJedis subscriberJedis;
     private final HashMap<Integer, ArrayList<Integer>> pollOptionIds = new HashMap<>();
-
 
     public PollManager() {
         this.jedis = new UnifiedJedis("redis://localhost:6379");
+        this.subscriberJedis = new UnifiedJedis("redis://localhost:6379");
+        Thread thread = new Thread(() -> {
+            subscriberJedis.psubscribe(new JedisPubSub() {
+                @Override
+                public void onMessage(String channel, String message) {
+                    System.out.println(channel + message);
+                    handleVoteEvent(channel, message);
+                }
+                @Override
+                public void onPMessage(String pattern, String channel, String message) {
+                    System.out.println(channel + message);
+                    handleVoteEvent(channel, message);
+                }
+                @Override
+                public void onPSubscribe(String pattern, int subscribedChannels) {
+                    System.out.println(pattern);
+                }
+                @Override
+                public void onUnsubscribe(String channel, int subscribedChannels) {
+                    System.out.println(channel + "number of subs: "+ subscribedChannels);
+                }
+            }, "poll:*:vote");
+        });
+        thread.start();
+    }
+
+    private void handleVoteEvent(String channel, String message) {
+
+            String[] parts = channel.split(":");
+            if (parts.length < 2) return;
+
+            Integer pollId = Integer.parseInt(parts[1]);
+
+            String[] msgParts = message.split(":");
+            if (msgParts.length < 2) return;
+
+            Integer voteOptionId = Integer.parseInt(msgParts[0]);
+            Integer userId = Integer.parseInt(msgParts[1]);
+            createVoteFromEvent(userId, voteOptionId, pollId);
+    }
+
+    private void createVoteFromEvent(Integer userId, Integer voteOptionId, Integer pollId) {
+        maxVoteId++;
+        Vote curr = new Vote(maxVoteId, Instant.now(), voteOptionId, userId);
+        voteMap.put(maxVoteId, curr);
+
+        voteOptionMap.get(voteOptionId).getVoteIds().add(maxVoteId);
+
+        if (userId != null && userMap.containsKey(userId)) {
+            User user = userMap.get(userId);
+            user.getVoteIds().add(voteOptionId);
+            HashMap<Vote, Integer> votesByUser = userVoteMap.computeIfAbsent(user, u -> new HashMap<>());
+            votesByUser.merge(curr, 1, Integer::sum);
+        }
+
+        deletePollCache(pollId);
+
+        System.out.println("Vote recorded in database: " + maxVoteId);
     }
 
     public User createUser(String username, String email) {
@@ -53,8 +112,43 @@ public class PollManager {
             optionIds.add(maxVoteOptionId);
             count++;
         }
+        String name = "poll:"+maxPollId;
         pollOptionIds.put(maxPollId, optionIds);
+        jedis.publish(name, question);
+        System.out.println("Subscribed to: "+name + ", Topic: "+ question);
         return curr;
+    }
+
+    public void publishVoteEvent(Integer pollId, Integer voteOptionId, Integer userId) {
+        String name = "pollId: " + pollId;
+        String message = voteOptionId + " by user " + userId;
+        jedis.publish(name, message);
+        System.out.println("Vote to " + name + " on voteoption " + message);
+    }
+
+    public void subscribePoll(Integer pollId, Integer userId) {
+        String channelPattern = "poll:" + pollId;
+        UnifiedJedis pollSubscriber = new UnifiedJedis("redis://localhost:6379");
+
+        Thread subscriptionThread = new Thread(() -> {
+            pollSubscriber.subscribe(new JedisPubSub() {
+                @Override
+                public void onMessage(String channel, String message) {
+                    System.out.println("User " + userId + " received message on " + channel + ": " + message);
+                }
+                @Override
+                public void onSubscribe(String channel, int subscribedChannels) {
+                    System.out.println("User " + userId + " subscribed to: " + channel);
+                }
+                @Override
+                public void onUnsubscribe(String channel, int subscribedChannels) {
+                    System.out.println("User " + userId + " unsubscribed from: " + channel);
+                }
+            }, channelPattern);
+        });
+
+        subscriptionThread.setDaemon(true);
+        subscriptionThread.start();
     }
 
     public ArrayList<VoteOption> getOptionsForPoll(Integer pollId) {
@@ -69,22 +163,26 @@ public class PollManager {
         return list;
     }
 
+
     public Vote createVote(Integer userId, Integer voteOptionId) {
         maxVoteId++;
         Vote curr = new Vote(maxVoteId, Instant.now(), voteOptionId, userId);
         voteMap.put(maxVoteId, curr);
         voteOptionMap.get(voteOptionId).getVoteIds().add(maxVoteId);
-        User user = userMap.get(userId);
-        user.getVoteIds().add(voteOptionId);
-        HashMap<Vote, Integer> votesByUser = userVoteMap.computeIfAbsent(user, u -> new HashMap<>());
-        votesByUser.merge(curr, 1, Integer::sum);
+
+        if (userId != null) {
+            User user = userMap.get(userId);
+            user.getVoteIds().add(voteOptionId);
+            HashMap<Vote, Integer> votesByUser = userVoteMap.computeIfAbsent(user, u -> new HashMap<>());
+            votesByUser.merge(curr, 1, Integer::sum);
+        }
 
         Integer pollId = pollIdByVoteOption(voteOptionId);
         if(pollId != null) {
             deletePollCache(pollId);
         }
 
-
+        publishVoteEvent(pollId, voteOptionId, userId);
         return curr;
     }
 

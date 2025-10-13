@@ -162,3 +162,22 @@ Content-Type: application/json
 <> 2025-09-07T180957-4.200.json
 
 ###
+POST localhost:8080/api/polls/1/voteEvent
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "voteOption": 1
+}
+
+###
+
+POST localhost:8080/api/polls/subscribe
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "pollId": 1
+}
+
+###
