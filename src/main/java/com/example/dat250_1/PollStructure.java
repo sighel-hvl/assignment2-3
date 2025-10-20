@@ -1,5 +1,4 @@
 package com.example.dat250_1;
-import java.time.Instant;
 import java.util.ArrayList;
 
 public class PollStructure {
